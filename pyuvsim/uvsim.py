@@ -162,7 +162,6 @@ class Source(object):
         pos_n = np.cos(az_za[1])
         return (pos_l, pos_m, pos_n)
 
-
 class Telescope(object):
     def __init__(self, telescope_name, telescope_location, beam_list):
         # telescope location (EarthLocation object)
@@ -175,6 +174,12 @@ class Telescope(object):
     def __eq__(self, other):
         return (self.telescope_location == other.telescope_location) and (self.beam_list == other.beam_list) and (self.telescope_name == other.telescope_name)
 
+def analytic_beam_jones(nu, za, az, sigma=0.3):
+    B = np.exp(-np.tan(za/2.)**2. / 2. / sigma**2.)
+    J = np.array([[np.cos(az)*np.cos(az), -np.sin(az)],
+                 [np.sin(az)*np.cos(za), np.cos(az)]])
+
+    return B * J
 
 class Antenna(object):
     def __init__(self, name, number, enu_position, beam_id):
@@ -185,7 +190,7 @@ class Antenna(object):
         # index of beam for this antenna from array.beam_list
         self.beam_id = beam_id
 
-    def get_beam_jones(self, array, source_lmn, frequency):
+    def get_beam_jones(self, array, source, frequency):
         # get_direction_jones needs to be defined on UVBeam
         # 2x2 array of Efield vectors in Az/ZA
         # return array.beam_list[self.beam_id].get_direction_jones(source_lmn, frequency)
