@@ -301,6 +301,8 @@ class Antenna(object):
         jones_matrix[0, 1] = interp_data[0, 0, 0, 0, 0]
         jones_matrix[1, 0] = interp_data[1, 0, 1, 0, 0]
 
+        self.jones_matrix = jones_matrix
+
         return jones_matrix
 
     def __eq__(self, other):
@@ -811,38 +813,46 @@ def run_uvsim(input_uv, beam_list, catalog=None, Nsrcs=None, mock_arrangement='z
         print("Tasks Received. Begin Calculations.")
     summed_task_dict = {}
 
-    if rank == 0:
-        if progsteps or progbar:
-            count = 0
-            tot = len(local_task_list)
-            if progbar:
-                pbar = progressbar.ProgressBar(maxval=tot).start()
-            else:
-                pbar = utils.progsteps(maxval=tot)
+    ### Sort the local task list:
+    local_task_list.sort()
 
-        for count, task in enumerate(local_task_list):
-            engine = UVEngine(task)
-            if task.uvdata_index not in summed_task_dict.keys():
-                summed_task_dict[task.uvdata_index] = task
-            if summed_task_dict[task.uvdata_index].visibility_vector is None:
-                summed_task_dict[task.uvdata_index].visibility_vector = engine.make_visibility()
-            else:
-                summed_task_dict[task.uvdata_index].visibility_vector += engine.make_visibility()
+    prev_time, prev_freq, prev_bl, prev_src = None, None, None, None
+    prev_task = None
+    engine = UVEngine()
+    if progsteps or progbar:
+        count = 0
+        tot = len(local_task_list)
+        if progbar:
+            pbar = progressbar.ProgressBar(maxval=tot).start()
+        else:
+            pbar = utils.progsteps(maxval=tot)
+    for count, task in enumerate(local_task_list):
+        ## Time, freq, baseline, then source
+        ## Quantities will only be re-calculated for each task if missing. 
 
-            if progbar or progsteps:
-                pbar.update(count)
+        if count>0:
+            if task.time == prev_time:
+                task.source.az_za = prev_src.az_za
+    
+            if task.freq == prev_freq:
+                if task.baseline.antenna1 == prev_bl.antenna1:
+                    task.baseline.antenna1.jones = prev_bl.antenna1.jones
+                if task.baseline.antenna2 == prev_bl.antenna2:
+                    task.baseline.antenna2.jones = prev_bl.antenna2.jones
+
+        try:
+            summed_task_dict[task.uvdata_index].visibility_vector += engine.make_visibility()
+        except KeyError:
+            summed_task_dict[task.uvdata_index].visibility_vector = engine.make_visibility()
 
         if progbar or progsteps:
-            pbar.finish()
-    else:
-        for task in local_task_list:
-            engine = UVEngine(task)
-            if task.uvdata_index not in summed_task_dict.keys():
-                summed_task_dict[task.uvdata_index] = task
-            if summed_task_dict[task.uvdata_index].visibility_vector is None:
-                summed_task_dict[task.uvdata_index].visibility_vector = engine.make_visibility()
-            else:
-                summed_task_dict[task.uvdata_index].visibility_vector += engine.make_visibility()
+            pbar.update(count)
+
+
+        prev_time = task.time
+        prev_freq = task.freq
+        prev_bl = task.baseline
+        prev_src =  task.source
 
     if rank == 0:
         print("Calculations Complete.")
