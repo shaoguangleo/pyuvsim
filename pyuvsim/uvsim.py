@@ -192,6 +192,7 @@ class Source(object):
 
         az_za = (source_altaz.az.rad, source_altaz.zen.rad)
         self.az_za = az_za
+
         return az_za
 
     def pos_lmn(self, time, telescope_location):
@@ -350,24 +351,43 @@ class UVTask(object):
 
     def __cmp__(self, other):
         # NB __cmp__ is not allowed in Python3.
+        ## slowest to fastest = Time, freq, baseline, then source
+        #Return -1 if self < other, 0 if self==other, +1 if self> other
 
-        blti0, _, fi0 = self.uvdata_index
-        blti1, _, fi1 = other.uvdata_index
-
-        if blti0 > blti1:
-            return 1
-        elif blti0 == blti1:
-            return 1 if fi0 > fi1 else -1
-        else:
-            return -1
+        if self.source.name == other.source.name:
+            if self.baseline.antenna1.number == other.baseline.antenna1.number:
+                if self.baseline.antenna2.number == other.baseline.antenna2.number:
+                    if self.freq == other.freq:
+                        if self.time == other.time:
+                            return 0
+                        else:
+                            return int(self.time - other.time)
+                    else:
+                        return int(self.freq - other.freq)
+                else:
+                    return self.baseline.antenna2.number - other.baseline.antenna2.number
+            else:
+                return self.baseline.antenna1.number - other.baseline.antenna1.number
+        elif self.source.name < other.source.name: return -1
+        else: return 1
 
 
 class UVEngine(object):
     # inputs x,y,z,flux,baseline(u,v,w), time, freq
     # x,y,z in same coordinate system as uvws
 
-    def __init__(self, task):   # task_array  = list of tuples (source,time,freq,uvw)
+    def __init__(self, task=None):   # task_array  = list of tuples (source,time,freq,uvw)
         # self.rank
+        if task is not None:
+            self.task = task
+            # Initialize task.time to a Time object.
+            if isinstance(self.task.time, float):
+                self.task.time = Time(self.task.time, format='jd')
+            if isinstance(self.task.freq, float):
+                self.task.freq = self.task.freq * units.Hz
+            # construct self based on MPI input
+
+    def set_task(self, task):
         self.task = task
         # Initialize task.time to a Time object.
         if isinstance(self.task.time, float):
@@ -818,7 +838,7 @@ def run_uvsim(input_uv, beam_list, catalog=None, Nsrcs=None, mock_arrangement='z
 
     prev_time, prev_freq, prev_bl, prev_src = None, None, None, None
     prev_task = None
-    engine = UVEngine()
+    engine = UVEngine(local_task_list[0])
     if progsteps or progbar:
         count = 0
         tot = len(local_task_list)
@@ -831,18 +851,20 @@ def run_uvsim(input_uv, beam_list, catalog=None, Nsrcs=None, mock_arrangement='z
         ## Quantities will only be re-calculated for each task if missing. 
 
         if count>0:
+            engine.set_task(task)
             if task.time == prev_time:
                 task.source.az_za = prev_src.az_za
     
             if task.freq == prev_freq:
                 if task.baseline.antenna1 == prev_bl.antenna1:
-                    task.baseline.antenna1.jones = prev_bl.antenna1.jones
+                    task.baseline.antenna1.jones = prev_bl.antenna1.jones_matrix
                 if task.baseline.antenna2 == prev_bl.antenna2:
-                    task.baseline.antenna2.jones = prev_bl.antenna2.jones
+                    task.baseline.antenna2.jones = prev_bl.antenna2.jones_matrix
 
         try:
             summed_task_dict[task.uvdata_index].visibility_vector += engine.make_visibility()
         except KeyError:
+            summed_task_dict[task.uvdata_index] = task
             summed_task_dict[task.uvdata_index].visibility_vector = engine.make_visibility()
 
         if progbar or progsteps:
