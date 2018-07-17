@@ -351,8 +351,8 @@ class UVTask(object):
 
     def __cmp__(self, other):
         # NB __cmp__ is not allowed in Python3.
-        ## slowest to fastest = Time, freq, baseline, then source
-        #Return -1 if self < other, 0 if self==other, +1 if self> other
+        # slowest to fastest = Time, freq, baseline, then source
+        # Return -1 if self < other, 0 if self==other, +1 if self> other
 
         if self.source.name == other.source.name:
             if self.baseline.antenna1.number == other.baseline.antenna1.number:
@@ -368,8 +368,10 @@ class UVTask(object):
                     return self.baseline.antenna2.number - other.baseline.antenna2.number
             else:
                 return self.baseline.antenna1.number - other.baseline.antenna1.number
-        elif self.source.name < other.source.name: return -1
-        else: return 1
+        elif self.source.name < other.source.name:
+            return -1
+        else:
+            return 1
 
 
 class UVEngine(object):
@@ -739,20 +741,20 @@ def create_mock_catalog(time, arrangement='zenith', array_location=None, Nsrcs=N
     if arrangement == 'hera_text':
 
         azs = np.array([-254.055, -248.199, -236.310, -225.000, -206.565,
-               -153.435, -123.690, -111.801, -105.945, -261.870,
-               -258.690, -251.565, -135.000, -116.565, -101.310,
-               -98.130, 90.000, 90.000, 90.000, 90.000, 90.000,
-               -90.000, -90.000, -90.000, -90.000, -90.000,
-               -90.000, 81.870, 78.690, 71.565, -45.000, -71.565,
-               -78.690, -81.870, 74.055, 68.199, 56.310, 45.000,
-               26.565, -26.565, -45.000, -56.310, -71.565])
+                        -153.435, -123.690, -111.801, -105.945, -261.870,
+                        -258.690, -251.565, -135.000, -116.565, -101.310,
+                        -98.130, 90.000, 90.000, 90.000, 90.000, 90.000,
+                        -90.000, -90.000, -90.000, -90.000, -90.000,
+                        -90.000, 81.870, 78.690, 71.565, -45.000, -71.565,
+                        -78.690, -81.870, 74.055, 68.199, 56.310, 45.000,
+                        26.565, -26.565, -45.000, -56.310, -71.565])
 
-        zas = np.arra([7.280, 5.385, 3.606, 2.828, 2.236, 2.236, 3.606,
-               5.385, 7.280, 7.071, 5.099, 3.162, 1.414, 2.236,
-               5.099, 7.071, 7.000, 6.000, 5.000, 3.000, 2.000,
-               1.000, 2.000, 3.000, 5.000, 6.000, 7.000, 7.071,
-               5.099, 3.162, 1.414, 3.162, 5.099, 7.071, 7.280,
-               5.385, 3.606, 2.828, 2.236, 2.236, 2.828, 3.606, 6.325])
+        zas = np.array([7.280, 5.385, 3.606, 2.828, 2.236, 2.236, 3.606,
+                       5.385, 7.280, 7.071, 5.099, 3.162, 1.414, 2.236,
+                       5.099, 7.071, 7.000, 6.000, 5.000, 3.000, 2.000,
+                       1.000, 2.000, 3.000, 5.000, 6.000, 7.000, 7.071,
+                       5.099, 3.162, 1.414, 3.162, 5.099, 7.071, 7.280,
+                       5.385, 3.606, 2.828, 2.236, 2.236, 2.828, 3.606, 6.325])
 
         alts = 90. - zas
         Nsrcs = zas.size
@@ -769,7 +771,7 @@ def create_mock_catalog(time, arrangement='zenith', array_location=None, Nsrcs=N
     for si in range(Nsrcs):
         catalog.append(Source('src' + str(si), ra[si], dec[si], freq, [fluxes[si], 0, 0, 0]))
     if rank == 0 and save:
-            np.savez('mock_catalog', ra=ra.rad, dec=dec.rad)
+        np.savez('mock_catalog', ra=ra.rad, dec=dec.rad)
 
     catalog = np.array(catalog)
     return catalog
@@ -833,7 +835,7 @@ def run_uvsim(input_uv, beam_list, catalog=None, Nsrcs=None, mock_arrangement='z
         print("Tasks Received. Begin Calculations.")
     summed_task_dict = {}
 
-    ### Sort the local task list:
+    # Sort the local task list:
     local_task_list.sort()
 
     prev_time, prev_freq, prev_bl, prev_src = None, None, None, None
@@ -847,14 +849,14 @@ def run_uvsim(input_uv, beam_list, catalog=None, Nsrcs=None, mock_arrangement='z
         else:
             pbar = utils.progsteps(maxval=tot)
     for count, task in enumerate(local_task_list):
-        ## Time, freq, baseline, then source
-        ## Quantities will only be re-calculated for each task if missing. 
+        # Time, freq, baseline, then source
+        # Quantities will only be re-calculated for each task if missing.
 
-        if count>0:
+        if count > 0:
             engine.set_task(task)
             if task.time == prev_time:
                 task.source.az_za = prev_src.az_za
-    
+
             if task.freq == prev_freq:
                 if task.baseline.antenna1 == prev_bl.antenna1:
                     task.baseline.antenna1.jones = prev_bl.antenna1.jones_matrix
@@ -870,11 +872,10 @@ def run_uvsim(input_uv, beam_list, catalog=None, Nsrcs=None, mock_arrangement='z
         if progbar or progsteps:
             pbar.update(count)
 
-
         prev_time = task.time
         prev_freq = task.freq
         prev_bl = task.baseline
-        prev_src =  task.source
+        prev_src = task.source
 
     if rank == 0:
         print("Calculations Complete.")

@@ -423,6 +423,7 @@ def test_single_offzenith_source_miriad():
 
     nt.assert_true(np.allclose(visibility, vis_analytic, atol=5e-3))
 
+
 def test_task_sort():
     hera_uv = UVData()
     hera_uv.read_uvfits(triangle_uvfits_file)
@@ -619,8 +620,9 @@ def test_mock_catalog():
 
     nt.assert_equal(cat_source, test_source)
 
+
 def test_read_gleam():
 
     sourcelist = pyuvsim.read_gleam_catalog(GLEAM_vot)
-    
+
     nt.assert_equal(len(sourcelist), 50)
