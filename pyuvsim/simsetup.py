@@ -18,6 +18,28 @@ from astropy.io.votable import parse
 # and for generating parameter files from uvfits files
 
 
+def beam_string_to_object(beam_model):
+    """
+        Make a beam object given an identifying string.
+    """
+    # Identify analytic beams
+    if beam_model.startswith('gaussian'):
+        sigma = float(beam_model.split("_")[1])
+        return pyuvsim.AnalyticBeam('gaussian', sigma=sigma)
+    elif beam_model.startswith('uniform'):
+        return pyuvsim.AnalyticBeam('uniform')
+    if not os.path.exists(beam_model):
+        filename = beam_model
+        path = os.path.join(SIM_DATA_PATH, filename)
+        if not os.path.exists(path):
+            raise OSError("Could not find file " + filename)
+    else:
+        path = beam_model   # beam_model = path to beamfits
+    uvb = UVBeam()
+    uvb.read_beamfits(path)
+    return uvb
+
+
 def write_uvfits(uv_obj, param_dict):
     """
         Parse output file information from parameters and write uvfits to file.
@@ -207,28 +229,14 @@ def initialize_uvdata_from_params(obs_params):
         which_ants = antnames[np.where(beam_ids == beamID)]
         for a in which_ants:
             beam_dict[a] = beamID
-        uvb = UVBeam()
-        if beam_model in ['gaussian', 'uniform']:
-            # Identify analytic beams
-            if beam_model == 'gaussian':
-                try:
-                    beam = pyuvsim.AnalyticBeam('gaussian', sigma=telparam['sigma'])
-                except KeyError as err:
-                    print("Missing sigma for gaussian beam.")
-                    raise err
-            else:
-                beam = pyuvsim.AnalyticBeam('uniform')
-            beam_list.append(beam)
-            continue
-        if not os.path.exists(beam_model):
-            filename = beam_model
-            path = os.path.join(SIM_DATA_PATH, filename)
-            if not os.path.exists(path):
-                raise OSError("Could not find file " + filename)
-        else:
-            path = beam_model   # beam_model = path to beamfits
-        uvb.read_beamfits(path)
-        beam_list.append(uvb)
+        if beam_model == 'gaussian':
+            try:
+                sigma = telparam['sigma']
+                beam_model = beam_model + '_' + str(sigma)
+            except KeyError:
+                print("Missing sigma for gaussian beam.")
+                raise err
+        beam_list.append(beam_model)
 
     param_dict['Nants_data'] = antnames.size
     param_dict['Nants_telescope'] = antnames.size
